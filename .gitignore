@@ -1,0 +1,79 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+*.out
+
+# API Keys and Secrets
+.env
+config/secrets.yaml
+config/api_keys.yaml
+*_secrets.yaml
+*_keys.yaml
+
+# Generated/Processed Files
+processed_*.json
+output_*.json
+reports/*.md
+reports/*.html
+temp/
+tmp/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Burp Suite
+*.burp
+*.state
+
+# Test files
+test_*.har
+test_*.json
+debug_*.txt
+
+# Local configuration overrides
+config/local_*.yaml
+config/override_*.yaml

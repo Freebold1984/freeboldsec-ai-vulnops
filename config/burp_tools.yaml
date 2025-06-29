@@ -1,0 +1,408 @@
+# Burp Suite Tools Configuration
+# Mapping of Burp Suite Professional tools and their capabilities
+
+# Core Burp Suite Tools (22 tools available via MCP)
+core_tools:
+  spider:
+    display_name: "Spider"
+    description: "Web application crawler for content discovery"
+    category: "reconnaissance"
+    capabilities:
+      - "content_discovery"
+      - "url_enumeration"
+      - "form_detection"
+      - "parameter_discovery"
+    
+    default_parameters:
+      max_depth: 10
+      forms: true
+      query_strings: true
+      follow_redirects: true
+      parse_robots_txt: true
+      parse_comments: true
+    
+    advanced_parameters:
+      custom_headers: {}
+      authentication: null
+      scope_restrictions: []
+      file_extension_blacklist: [".pdf", ".doc", ".zip", ".exe", ".dmg"]
+      max_response_size_kb: 1024
+      request_delay_ms: 0
+    
+    output_formats:
+      - "site_map"
+      - "discovered_urls"
+      - "forms_identified"
+      - "parameters_found"
+
+  scanner:
+    display_name: "Scanner"
+    description: "Automated vulnerability scanner"
+    category: "vulnerability_assessment"
+    capabilities:
+      - "active_scanning"
+      - "passive_scanning"
+      - "vulnerability_detection"
+      - "issue_reporting"
+    
+    scan_types:
+      active:
+        description: "Comprehensive active vulnerability scanning"
+        checks: "all"
+        insertion_points: "all"
+        risk_level: "high"
+      
+      passive:
+        description: "Passive analysis of existing traffic"
+        checks: "passive_only"
+        insertion_points: "none"
+        risk_level: "low"
+      
+      light:
+        description: "Fast scan with reduced check coverage"
+        checks: ["xss", "sqli", "directory_traversal"]
+        insertion_points: "parameters_only"
+        risk_level: "medium"
+    
+    vulnerability_categories:
+      - "injection"
+      - "xss"
+      - "authentication"
+      - "authorization"
+      - "information_disclosure"
+      - "csrf"
+      - "file_path_traversal"
+      - "os_command_injection"
+      - "xml_external_entity"
+      - "insecure_deserialization"
+
+  intruder:
+    display_name: "Intruder"
+    description: "Automated attack tool for custom payloads"
+    category: "exploitation"
+    capabilities:
+      - "payload_delivery"
+      - "parameter_fuzzing"
+      - "brute_force_attacks"
+      - "custom_attacks"
+    
+    attack_types:
+      sniper:
+        description: "Single payload set, sequential insertion"
+        payload_sets: 1
+        use_case: "single_parameter_fuzzing"
+      
+      battering_ram:
+        description: "Single payload set, parallel insertion"
+        payload_sets: 1
+        use_case: "same_payload_multiple_positions"
+      
+      pitchfork:
+        description: "Multiple payload sets, parallel iteration"
+        payload_sets: "multiple"
+        use_case: "coordinated_attacks"
+      
+      cluster_bomb:
+        description: "Multiple payload sets, all combinations"
+        payload_sets: "multiple"
+        use_case: "comprehensive_fuzzing"
+    
+    payload_types:
+      - "simple_list"
+      - "runtime_file"
+      - "custom_iterator"
+      - "character_substitution"
+      - "case_modification"
+      - "recursive_grep"
+      - "illegal_unicode"
+      - "character_blocks"
+      - "numbers"
+      - "dates"
+      - "brute_forcer"
+      - "null_payloads"
+      - "character_frobber"
+      - "bit_flipper"
+
+  repeater:
+    display_name: "Repeater"
+    description: "Manual request manipulation and analysis"
+    category: "manual_testing"
+    capabilities:
+      - "request_modification"
+      - "response_analysis"
+      - "manual_exploitation"
+      - "payload_testing"
+    
+    features:
+      - "syntax_highlighting"
+      - "request_history"
+      - "response_comparison"
+      - "custom_headers"
+      - "cookie_management"
+      - "authentication_handling"
+
+  sequencer:
+    display_name: "Sequencer"
+    description: "Session token randomness analyzer"
+    category: "authentication"
+    capabilities:
+      - "token_analysis"
+      - "randomness_testing"
+      - "entropy_analysis"
+      - "session_security"
+    
+    analysis_types:
+      - "manual_load"
+      - "auto_capture"
+      - "live_capture"
+    
+    tests_performed:
+      - "character_level_analysis"
+      - "bit_level_analysis"
+      - "character_transition_analysis"
+      - "character_frequency_analysis"
+      - "serial_correlation"
+      - "entropy_estimation"
+
+# Extended Tools and Extensions
+extended_tools:
+  decoder:
+    display_name: "Decoder"
+    description: "Data encoding/decoding utility"
+    category: "utility"
+    supported_formats:
+      - "url_encoding"
+      - "html_encoding"
+      - "base64"
+      - "ascii_hex"
+      - "octal"
+      - "binary"
+      - "gzip"
+      - "md5_hash"
+      - "sha1_hash"
+      - "sha256_hash"
+
+  comparer:
+    display_name: "Comparer"
+    description: "Data comparison utility"
+    category: "utility"
+    comparison_types:
+      - "words"
+      - "bytes"
+    
+    features:
+      - "syntax_highlighting"
+      - "difference_highlighting"
+      - "case_sensitive_comparison"
+      - "whitespace_handling"
+
+  collaborator:
+    display_name: "Collaborator"
+    description: "Out-of-band interaction testing"
+    category: "advanced_testing"
+    capabilities:
+      - "dns_lookups"
+      - "http_requests"
+      - "smtp_connections"
+      - "pingback_detection"
+    
+    interaction_types:
+      dns:
+        description: "DNS lookup interactions"
+        use_cases: ["dns_exfiltration", "blind_ssrf", "dns_rebinding"]
+      
+      http:
+        description: "HTTP request interactions"
+        use_cases: ["http_ssrf", "webhook_testing", "callback_validation"]
+      
+      smtp:
+        description: "SMTP connection interactions"
+        use_cases: ["email_injection", "smtp_relay_testing"]
+
+  content_discovery:
+    display_name: "Content Discovery"
+    description: "Hidden content and directory enumeration"
+    category: "reconnaissance"
+    wordlists:
+      common:
+        description: "Common directories and files"
+        size: "medium"
+        categories: ["admin", "backup", "config", "test"]
+      
+      comprehensive:
+        description: "Extensive wordlist for thorough discovery"
+        size: "large"
+        categories: ["all"]
+      
+      technology_specific:
+        description: "Technology-specific paths"
+        technologies: ["php", "asp", "jsp", "python", "ruby"]
+
+  logger:
+    display_name: "Logger"
+    description: "HTTP traffic logging and analysis"
+    category: "utility"
+    log_formats:
+      - "burp_xml"
+      - "json"
+      - "csv"
+      - "har"
+    
+    filtering_options:
+      - "status_codes"
+      - "content_types"
+      - "request_methods"
+      - "url_patterns"
+      - "response_sizes"
+
+# Professional Extensions
+professional_extensions:
+  param_miner:
+    display_name: "Param Miner"
+    description: "Hidden parameter discovery"
+    category: "reconnaissance"
+    discovery_methods:
+      - "header_bruteforce"
+      - "json_parameter_mining"
+      - "cookie_mining"
+      - "cache_poisoning_detection"
+    
+    wordlists:
+      - "common_parameters"
+      - "framework_specific"
+      - "language_specific"
+      - "custom_wordlists"
+
+  turbo_intruder:
+    display_name: "Turbo Intruder"
+    description: "High-speed content discovery and fuzzing"
+    category: "exploitation"
+    features:
+      - "http2_support"
+      - "concurrent_requests"
+      - "python_scripting"
+      - "custom_attack_logic"
+    
+    request_engines:
+      - "http1"
+      - "http2"
+      - "threaded"
+      - "async"
+
+  auth_analyzer:
+    display_name: "Auth Analyzer"
+    description: "Authentication bypass detection"
+    category: "authentication"
+    test_types:
+      - "session_fixation"
+      - "privilege_escalation"
+      - "authorization_bypass"
+      - "session_hijacking"
+
+  dom_invader:
+    display_name: "DOM Invader"
+    description: "Client-side vulnerability detection"
+    category: "client_side"
+    capabilities:
+      - "dom_xss_detection"
+      - "prototype_pollution"
+      - "client_side_injection"
+      - "postmessage_analysis"
+
+  clickbandit:
+    display_name: "Clickbandit"
+    description: "Clickjacking attack generator"
+    category: "client_side"
+    attack_types:
+      - "basic_clickjacking"
+      - "drag_and_drop"
+      - "frame_busting_bypass"
+      - "ui_redressing"
+
+  infiltrator:
+    display_name: "Infiltrator"
+    description: "Application instrumentation"
+    category: "advanced_testing"
+    instrumentation_types:
+      - "code_coverage"
+      - "execution_tracing"
+      - "runtime_analysis"
+
+  hackvertor:
+    display_name: "Hackvertor"
+    description: "Data conversion and encoding"
+    category: "utility"
+    conversion_tags:
+      - "encoding_tags"
+      - "hashing_tags"
+      - "encryption_tags"
+      - "custom_tags"
+
+  bambdas:
+    display_name: "Bambdas"
+    description: "Custom Java expressions for filtering"
+    category: "utility"
+    expression_types:
+      - "request_filtering"
+      - "response_analysis"
+      - "custom_highlighting"
+      - "data_extraction"
+
+# Tool Categories and Organization
+categories:
+  reconnaissance:
+    tools: ["spider", "content_discovery", "param_miner"]
+    description: "Information gathering and attack surface mapping"
+    priority: "high"
+  
+  vulnerability_assessment:
+    tools: ["scanner", "collaborator", "dom_invader"]
+    description: "Automated vulnerability detection"
+    priority: "high"
+  
+  exploitation:
+    tools: ["intruder", "turbo_intruder", "repeater"]
+    description: "Manual and automated exploitation"
+    priority: "medium"
+  
+  authentication:
+    tools: ["sequencer", "auth_analyzer"]
+    description: "Authentication and session security testing"
+    priority: "high"
+  
+  client_side:
+    tools: ["dom_invader", "clickbandit"]
+    description: "Client-side vulnerability testing"
+    priority: "medium"
+  
+  utility:
+    tools: ["decoder", "comparer", "logger", "hackvertor", "bambdas"]
+    description: "Support tools and utilities"
+    priority: "low"
+  
+  advanced_testing:
+    tools: ["collaborator", "infiltrator"]
+    description: "Advanced testing techniques"
+    priority: "medium"
+
+# Usage Recommendations
+usage_recommendations:
+  initial_assessment:
+    recommended_tools: ["spider", "scanner", "content_discovery"]
+    sequence: ["spider", "content_discovery", "scanner"]
+    description: "Initial reconnaissance and automated scanning"
+  
+  manual_testing:
+    recommended_tools: ["repeater", "intruder", "sequencer"]
+    sequence: ["repeater", "intruder", "sequencer"]
+    description: "Manual exploitation and specialized testing"
+  
+  comprehensive_audit:
+    recommended_tools: ["spider", "scanner", "param_miner", "auth_analyzer", "collaborator"]
+    sequence: ["spider", "param_miner", "scanner", "auth_analyzer", "collaborator"]
+    description: "Thorough security assessment"
+  
+  authentication_focus:
+    recommended_tools: ["sequencer", "auth_analyzer", "intruder"]
+    sequence: ["sequencer", "auth_analyzer", "intruder"]
+    description: "Authentication mechanism testing"

@@ -1,0 +1,328 @@
+# Freeboldsec AI VulnOps Framework - Core Settings
+# Main configuration file for the vulnerability operations framework
+
+# Framework Information
+framework:
+  name: "Freeboldsec AI VulnOps"
+  version: "1.0.0"
+  description: "AI-powered vulnerability research and exploitation framework"
+  author: "Freeboldsec Research Team"
+  license: "MIT"
+
+# Core Framework Settings
+core:
+  # Framework mode
+  mode: "production"  # development, testing, production
+  debug_enabled: false
+  verbose_logging: false
+  
+  # Working directories
+  data_directory: "data/"
+  logs_directory: "logs/"
+  cache_directory: "cache/"
+  temp_directory: "temp/"
+  reports_directory: "reports/"
+  
+  # File handling
+  max_file_size_mb: 100
+  allowed_file_types: [".json", ".xml", ".txt", ".log", ".har", ".pcap"]
+  backup_enabled: true
+  backup_retention_days: 30
+
+# AI Model Integration
+ai_models:
+  # Model configuration file
+  config_file: "config/models.yaml"
+  
+  # Default model preferences
+  default_triage_model: "claude-3-sonnet"
+  default_recon_model: "claude-3-opus"
+  default_exploit_model: "deepseek-coder"
+  default_report_model: "gpt-4-turbo"
+  default_auth_model: "claude-3-opus"
+  
+  # Performance settings
+  request_timeout_seconds: 300
+  max_concurrent_requests: 5
+  enable_model_fallbacks: true
+  
+  # Cost management
+  enable_cost_tracking: true
+  monthly_budget_usd: 1000.0
+  cost_alert_threshold: 0.8  # Alert at 80% of budget
+
+# Burp Suite Integration
+burp_integration:
+  # MCP configuration file
+  mcp_config_file: "config/mcp_settings.yaml"
+  
+  # Connection settings
+  auto_connect: true
+  connection_retry_attempts: 3
+  health_check_enabled: true
+  
+  # Tool availability
+  preferred_tools: ["spider", "scanner", "intruder", "param_miner"]
+  fallback_tools: ["repeater", "content_discovery"]
+  
+  # Result processing
+  auto_import_results: true
+  result_processing_interval: 60  # seconds
+  max_result_age_hours: 24
+
+# Persona System
+personas:
+  # Persona directory
+  persona_directory: "personas/"
+  
+  # Persona assignment
+  auto_assign_personas: true
+  persona_confidence_threshold: 0.7
+  
+  # Custom persona settings
+  allow_custom_personas: true
+  persona_validation_enabled: true
+  
+  # Persona caching
+  cache_persona_responses: true
+  cache_duration_hours: 12
+
+# Memory Management
+memory:
+  # Triage feedback system
+  enable_feedback_memory: true
+  memory_retention_days: 90
+  max_memory_entries: 10000
+  
+  # Duplicate detection
+  enable_duplicate_detection: true
+  similarity_threshold: 0.85
+  
+  # Learning system
+  enable_continuous_learning: true
+  learning_rate: 0.1
+  adaptation_threshold: 0.8
+
+# Security Settings
+security:
+  # API key management
+  encrypt_api_keys: true
+  api_key_rotation_days: 90
+  
+  # Data protection
+  encrypt_sensitive_data: true
+  data_retention_policy: "strict"
+  pii_detection_enabled: true
+  
+  # Access control
+  require_authentication: false  # Set to true for production
+  session_timeout_minutes: 60
+  max_login_attempts: 3
+  
+  # Audit logging
+  audit_logging_enabled: true
+  audit_log_file: "logs/audit.log"
+  log_retention_days: 365
+
+# Quality Assurance
+quality:
+  # Validation settings
+  enable_input_validation: true
+  enable_output_validation: true
+  enable_sanitization: true
+  
+  # Confidence scoring
+  minimum_confidence_score: 0.7
+  require_evidence: true
+  cross_validation_enabled: true
+  
+  # Report quality
+  enforce_report_standards: true
+  require_cvss_scoring: true
+  require_impact_assessment: true
+
+# Performance Optimization
+performance:
+  # Processing settings
+  max_parallel_tasks: 10
+  task_queue_size: 100
+  worker_pool_size: 5
+  
+  # Caching
+  enable_caching: true
+  cache_size_mb: 512
+  cache_cleanup_interval: 3600  # seconds
+  
+  # Resource limits
+  max_memory_usage_mb: 2048
+  max_cpu_usage_percent: 80
+  disk_space_warning_mb: 1024
+
+# Reporting and Output
+reporting:
+  # Default formats
+  default_format: "markdown"
+  supported_formats: ["markdown", "json", "html", "pdf"]
+  
+  # Report templates
+  template_directory: "templates/report_templates/"
+  custom_templates_allowed: true
+  
+  # Output settings
+  include_screenshots: true
+  include_payloads: true
+  redact_sensitive_data: true
+  
+  # Distribution
+  auto_generate_reports: true
+  report_generation_trigger: "scan_complete"
+  email_reports: false
+
+# Integration Settings
+integrations:
+  # External tools
+  nuclei:
+    enabled: false
+    binary_path: ""
+    template_path: ""
+  
+  sqlmap:
+    enabled: false
+    binary_path: ""
+    tamper_scripts_path: ""
+  
+  nmap:
+    enabled: false
+    binary_path: ""
+    script_path: ""
+  
+  # Platforms
+  github:
+    enabled: false
+    repository: ""
+    branch: "main"
+    auto_create_issues: false
+  
+  slack:
+    enabled: false
+    webhook_url: ""
+    channel: ""
+    notify_on: ["critical_findings", "scan_complete"]
+  
+  jira:
+    enabled: false
+    server_url: ""
+    project_key: ""
+    api_token: ""
+
+# Notification System
+notifications:
+  # Email notifications
+  email:
+    enabled: false
+    smtp_server: ""
+    smtp_port: 587
+    username: ""
+    password: ""
+    from_address: ""
+    to_addresses: []
+  
+  # Webhook notifications
+  webhooks:
+    enabled: false
+    urls: []
+    events: ["critical_finding", "scan_complete", "error"]
+  
+  # Desktop notifications
+  desktop:
+    enabled: true
+    critical_only: true
+
+# Error Handling and Recovery
+error_handling:
+  # Error recovery
+  auto_retry_failed_tasks: true
+  max_retry_attempts: 3
+  retry_delay_seconds: 30
+  
+  # Error reporting
+  capture_stack_traces: true
+  send_error_reports: false
+  error_report_endpoint: ""
+  
+  # Graceful degradation
+  continue_on_error: true
+  skip_failed_components: true
+  fallback_to_manual_mode: true
+
+# Logging Configuration
+logging:
+  # Log levels
+  framework_log_level: "INFO"
+  burp_log_level: "WARNING"
+  ai_model_log_level: "INFO"
+  
+  # Log files
+  main_log_file: "logs/framework.log"
+  error_log_file: "logs/error.log"
+  access_log_file: "logs/access.log"
+  
+  # Log rotation
+  log_rotation_size_mb: 100
+  log_retention_days: 30
+  compress_old_logs: true
+  
+  # Structured logging
+  log_format: "json"
+  include_timestamps: true
+  include_request_ids: true
+
+# Development and Testing
+development:
+  # Development mode settings
+  enable_hot_reload: false
+  debug_api_calls: false
+  mock_burp_responses: false
+  
+  # Testing configuration
+  test_data_directory: "tests/data/"
+  run_integration_tests: false
+  performance_testing_enabled: false
+  
+  # Profiling
+  enable_profiling: false
+  profiling_output_directory: "profiles/"
+  memory_profiling: false
+
+# Compliance and Standards
+compliance:
+  # Security standards
+  follow_owasp_guidelines: true
+  cvss_version: "3.1"
+  cwe_classification: true
+  
+  # Data protection
+  gdpr_compliance: true
+  ccpa_compliance: true
+  hipaa_compliance: false
+  
+  # Audit requirements
+  maintain_audit_trail: true
+  evidence_preservation: true
+  chain_of_custody: true
+
+# Backup and Recovery
+backup:
+  # Backup settings
+  automatic_backups: true
+  backup_interval_hours: 24
+  backup_location: "backups/"
+  
+  # Retention policy
+  backup_retention_days: 90
+  compress_backups: true
+  encrypt_backups: true
+  
+  # Recovery settings
+  enable_point_in_time_recovery: true
+  recovery_test_enabled: false
