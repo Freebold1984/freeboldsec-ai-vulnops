@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class TaskType(Enum):
+    BURP_INTEGRATION = "burp_integration"
     TRIAGE = "triage"
     RECON = "recon"
     EXPLOIT = "exploit"
@@ -157,7 +158,42 @@ class ModelDispatcher:
         except Exception as e:
             logger.error(f"Anthropic API call failed: {e}")
             raise
-    
+
+    async def _call_ollama_model(self, model: ModelConfig, messages: List[Dict]) -> str:
+        """Call local Ollama model via CLI"""
+        import subprocess, json
+        # Build prompt string from messages
+        prompt = ""
+        for msg in messages:
+            prompt += f"[{msg['role'].upper()}] {msg['content']}\n"
+        try:
+            result = subprocess.run(
+                ["ollama", "run", model.model_id, "--prompt", prompt],
+                capture_output=True, text=True,
+                check=True
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Ollama CLI call failed: {e.stderr}")
+            raise
+
+    async def _call_github_copilot(self, model: ModelConfig, messages: List[Dict]) -> str:
+        """Call GitHub Copilot for Burp Suite tool interactions"""
+        try:
+            # This would integrate with GitHub Copilot API or CLI
+            # For now, return a placeholder response
+            prompt = ""
+            for msg in messages:
+                prompt += f"{msg['content']}\n"
+            
+            # Placeholder implementation - would need actual GitHub Copilot integration
+            logger.info("Routing Burp Suite interaction to GitHub Copilot")
+            return f"GitHub Copilot handling Burp Suite interaction: {prompt[:100]}..."
+            
+        except Exception as e:
+            logger.error(f"GitHub Copilot call failed: {e}")
+            raise
+
     async def dispatch_task(
         self, 
         task_type: TaskType, 
@@ -187,6 +223,10 @@ class ModelDispatcher:
                 response = await self._call_openai_model(model, messages)
             elif model.provider == "anthropic":
                 response = await self._call_anthropic_model(model, messages)
+            elif model.provider == "ollama":
+                response = await self._call_ollama_model(model, messages)
+            elif model.provider == "github":
+                response = await self._call_github_copilot(model, messages)
             else:
                 raise ValueError(f"Unsupported provider: {model.provider}")
             
@@ -208,18 +248,34 @@ class ModelDispatcher:
             }
     
     async def analyze_burp_log(self, log_path: str) -> Dict[str, Any]:
-        """Analyze Burp Suite logs for vulnerabilities"""
+        """Analyze Burp Suite logs for vulnerabilities using GitHub Copilot first, then other models"""
         
         # Load and preprocess the log
         with open(log_path, 'r') as f:
             log_data = json.load(f)
         
-        # Dispatch to triage model
-        return await self.dispatch_task(
-            TaskType.TRIAGE,
-            "Analyze the provided Burp Suite scan results and identify real vulnerabilities. Focus on high-impact issues like XSS, IDOR, SSRF, and authentication bypasses.",
+        # Step 1: GitHub Copilot handles Burp Suite tool interactions
+        copilot_result = await self.dispatch_task(
+            TaskType.BURP_INTEGRATION,
+            "Process and extract relevant data from Burp Suite scan results for further analysis.",
             {"burp_log": log_data}
         )
+        
+        # Step 2: Feed processed data to analysis models
+        if copilot_result.get("success"):
+            triage_result = await self.dispatch_task(
+                TaskType.TRIAGE,
+                "Analyze the processed Burp Suite data and identify real vulnerabilities. Focus on high-impact issues like XSS, IDOR, SSRF, and authentication bypasses.",
+                {"processed_data": copilot_result["response"], "original_log": log_data}
+            )
+            
+            return {
+                "burp_integration": copilot_result,
+                "vulnerability_analysis": triage_result,
+                "workflow": "github-copilot -> gemini-analysis"
+            }
+        else:
+            return copilot_result
     
     async def generate_recon_strategy(self, target_info: Dict[str, Any]) -> Dict[str, Any]:
         """Generate reconnaissance strategy for a target"""

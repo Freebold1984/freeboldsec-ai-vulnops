@@ -1,121 +1,62 @@
-# Model Configuration for Freeboldsec AI VulnOps Framework
-# Configure your AI model providers and routing preferences
-
 models:
-  # OpenAI GPT Models
-  gpt-4-turbo:
-    provider: "openai"
-    model_id: "gpt-4-turbo-preview"
-    api_key: "${OPENAI_API_KEY}"
-    max_tokens: 4000
-    temperature: 0.1
-    specialized_for: ["exploit", "report"]
-    description: "Advanced reasoning for complex exploit development and professional reporting"
-  
-  gpt-3.5-turbo:
-    provider: "openai"
-    model_id: "gpt-3.5-turbo"
-    api_key: "${OPENAI_API_KEY}"
+  # GitHub Copilot for Burp integration
+  github-copilot:
+    provider: "github"
+    model_id: "copilot"
     max_tokens: 2000
+    temperature: 0.1
+    specialized_for: ["burp_integration"]
+    description: "GitHub Copilot for Burp Suite tool interactions"
+
+  # Ollama local Gemini model
+  gemini-2.5-pro-local:
+    provider: "ollama"
+    model_id: "gemini-2.5-pro-preview-06-05"
+    max_tokens: 3000
     temperature: 0.2
-    specialized_for: ["triage"]
-    description: "Fast and efficient vulnerability triage and classification"
+    specialized_for: ["triage", "recon", "report"]
+    description: "Local Gemini model via Ollama for offline analysis"
 
-  # Anthropic Claude Models
-  claude-3-opus:
-    provider: "anthropic"
-    model_id: "claude-3-opus-20240229"
-    api_key: "${ANTHROPIC_API_KEY}"
-    max_tokens: 4000
-    temperature: 0.1
-    specialized_for: ["recon", "auth_audit"]
-    description: "Superior analytical capabilities for reconnaissance and authentication analysis"
-  
-  claude-3-sonnet:
-    provider: "anthropic"
-    model_id: "claude-3-sonnet-20240229"
-    api_key: "${ANTHROPIC_API_KEY}"
+  # Additional local models via Ollama CLI
+  phi4-local:
+    provider: "ollama"
+    model_id: "phi-4-multimodal-instruct"
     max_tokens: 3000
-    temperature: 0.15
-    specialized_for: ["triage", "report"]
-    description: "Balanced model for vulnerability triage and report generation"
-
-  # DeepSeek Models (for specialized coding tasks)
-  deepseek-coder:
-    provider: "deepseek"
-    model_id: "deepseek-coder-33b-instruct"
-    api_key: "${DEEPSEEK_API_KEY}"
-    api_base: "https://api.deepseek.com/v1"
-    max_tokens: 8000
-    temperature: 0.1
-    specialized_for: ["exploit"]
-    description: "Specialized in code generation and exploit development"
-
-  # Mistral Models (for fast processing)
-  mistral-large:
-    provider: "mistral"
-    model_id: "mistral-large-latest"
-    api_key: "${MISTRAL_API_KEY}"
-    max_tokens: 3000
-    temperature: 0.1
-    specialized_for: ["triage", "recon"]
-    description: "Fast processing for high-volume triage and reconnaissance"
-
-  # Together AI Models (for open-source alternatives)
-  wizard-coder:
-    provider: "together"
-    model_id: "WizardLM/WizardCoder-Python-34B-V1.0"
-    api_key: "${TOGETHER_API_KEY}"
-    max_tokens: 4000
-    temperature: 0.1
-    specialized_for: ["exploit"]
-    description: "Open-source coding specialist for exploit development"
+    temperature: 0.2
+    specialized_for: ["exploit", "report"]
+    description: "Local Phi-4 multimodal instruct via Ollama CLI"
 
 # Model Selection Strategy
 selection_strategy:
   # Primary model for each task type
   default_models:
-    triage: "claude-3-sonnet"
-    recon: "claude-3-opus"
-    exploit: "deepseek-coder"
-    report: "gpt-4-turbo"
-    auth_audit: "claude-3-opus"
-  
+    burp_integration: "github-copilot"
+    triage: "gemini-2.5-pro-local"
+    recon: "gemini-2.5-pro-local"
+    exploit: "phi4-local"
+    report: "phi4-local"
+    auth_audit: "phi4-local"
+
   # Fallback models if primary is unavailable
   fallback_models:
-    triage: ["mistral-large", "gpt-3.5-turbo"]
-    recon: ["mistral-large", "claude-3-sonnet"]
-    exploit: ["wizard-coder", "gpt-4-turbo"]
-    report: ["claude-3-sonnet", "gpt-3.5-turbo"]
-    auth_audit: ["claude-3-sonnet", "gpt-4-turbo"]
+    triage: []
+    recon: []
+    exploit: []
+    report: []
+    auth_audit: []
 
 # Performance and Cost Optimization
 optimization:
-  # Enable model caching to reduce API calls
   enable_caching: true
   cache_duration_hours: 24
-  
-  # Rate limiting to prevent API quota exhaustion
   rate_limits:
-    openai: 60  # requests per minute
-    anthropic: 50
-    deepseek: 30
-    mistral: 100
-    together: 40
-  
-  # Cost management
+    ollama: 60
   max_monthly_spend:
-    openai: 500.00
-    anthropic: 400.00
-    deepseek: 200.00
-    mistral: 300.00
-    together: 150.00
-  
-  # Token usage optimization
+    ollama: 100.00
   max_context_tokens:
     small_tasks: 2000
-    medium_tasks: 4000
-    large_tasks: 8000
+    medium_tasks: 3000
+    large_tasks: 4000
 
 # Model Routing Rules
 routing_rules:
@@ -189,9 +130,13 @@ logging:
 integrations:
   # Burp Suite MCP integration
   burp_mcp:
+    primary_handler: "github-copilot"
     auto_import_logs: true
-    real_time_analysis: false
+    real_time_analysis: true
     batch_processing: true
+    data_pipeline:
+      - source: "github-copilot"
+      - analysis: ["gemini-2.5-pro-local", "phi4-local"]
   
   # GitHub integration for report storage
   github:
