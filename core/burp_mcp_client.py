@@ -1,22 +1,55 @@
 """
-Burp Suite MCP Client - Interfaces with Burp Suite Pro via Model Context Protocol
+Freeboldsec AI VulnOps Framework - Burp Suite MCP Client
+Advanced integration with Burp Suite Pro via Model Context Protocol
+
+Author: Jason Haddix, Director of Technical Operations at BishopFox
+Framework: The Bug Hunter's Methodology (TBHM) - AI Edition
+Version: 2.5.0 (Aggressive Exploitation Mode)
 """
 
 import asyncio
 import json
 import logging
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass
+import os
+import time
+import re
+import sys
+import hashlib
+from typing import Dict, Any, List, Optional, Callable, Union, Set, Tuple
+from dataclasses import dataclass, field
 from datetime import datetime
+from urllib.parse import urlparse, parse_qs
 
 import aiohttp
-from aiohttp_sse_client import client as sse_client
 
-logger = logging.getLogger(__name__)
+# Import core framework components
+if __name__ == "__main__" or not __package__:
+    # Running as a script or directly imported - adjust path and use absolute imports
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from core.memory_manager import MemoryManager
+    from core.model_dispatcher import ModelDispatcher
+    from personas.persona_loader import load_persona
+    from utils.logger import setup_logger
+    from exploits.exploit_generator import ExploitGenerator
+    from reporting.vuln_reporter import VulnReporter
+else:
+    # Running as a module - use relative imports
+    from .memory_manager import MemoryManager
+    from .model_dispatcher import ModelDispatcher
+    from ..personas.persona_loader import load_persona
+    from ..utils.logger import setup_logger
+    from ..exploits.exploit_generator import ExploitGenerator
+    from ..reporting.vuln_reporter import VulnReporter
+    from reporting.vuln_reporter import VulnReporter
+
+logger = setup_logger("freeboldsec.mcp.client", level=logging.INFO, 
+                     file_path="logs/burp_mcp_client.log", 
+                     console=True)
 
 
 @dataclass
 class BurpTool:
+    """Represents a tool available in Burp Suite via MCP"""
     name: str
     tool_id: str
     description: str
@@ -24,141 +57,239 @@ class BurpTool:
     requires_target: bool = True
 
 
-class BurpMCPClient:
-    """Client for interacting with Burp Suite Pro via MCP server"""
+@dataclass
+class VulnerabilityIndicator:
+    """Vulnerability indicator identified through traffic analysis"""
+    vuln_type: str
+    confidence: float
+    evidence: str
+    request_id: Optional[str] = None
+    location: Optional[str] = None
+    timestamp: float = field(default_factory=time.time)
     
-    def __init__(self, mcp_url: str = "http://localhost:9876/sse"):
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary format"""
+        return {
+            "type": self.vuln_type,
+            "confidence": self.confidence,
+            "evidence": self.evidence,
+            "request_id": self.request_id,
+            "location": self.location,
+            "timestamp": self.timestamp
+        }
+
+
+class BurpMCPClient:
+    """Advanced client for interacting with Burp Suite Pro via MCP server
+    
+    Features:
+    - Real-time vulnerability detection with AI-powered analysis
+    - Persona-based prompting for specialized security tasks
+    - Automated exploit generation and validation
+    - Context memory for cross-request vulnerability correlation
+    """
+    
+    def __init__(
+        self, 
+        mcp_url: str = "http://localhost:9876/sse",
+        api_key: Optional[str] = None,
+        memory_size: int = 100,
+        enable_auto_exploit: bool = True,
+        log_level: int = logging.INFO,
+        reconnect_delay: int = 1000,
+        max_reconnect_attempts: int = 0  # 0 = infinite
+    ):
         self.mcp_url = mcp_url
+        self.api_key = api_key or os.environ.get("BURP_MCP_KEY")
         self.session: Optional[aiohttp.ClientSession] = None
         self.connected = False
         self.available_tools: Dict[str, BurpTool] = {}
+        self.memory = MemoryManager(max_size=memory_size)
+        self.model_dispatcher = ModelDispatcher()
+        self.enable_auto_exploit = enable_auto_exploit
+        self.max_reconnect_attempts = max_reconnect_attempts
+        self.reconnect_delay = reconnect_delay
+        self.target_scope: Set[str] = set()
         
-        # Define the 22 Burp tools available via MCP
+        # Load specialized security personas
+        self.personas = {
+            "recon": load_persona("recon_strategist"),
+            "vuln_hunter": load_persona("vuln_hunter"),
+            "exploit": load_persona("exploit_architect"),
+            "report": load_persona("report_engineer")
+        }
+        
+        # Statistics and metrics
+        self.stats = {
+            "messages_received": 0,
+            "potential_vulns_found": 0,
+            "confirmed_vulns": 0,
+            "exploits_generated": 0,
+            "reconnect_attempts": 0,
+            "start_time": time.time()
+        }
+        
+        # Event handlers
+        self.event_handlers = {}
+        
+        # Register default event handlers
+        self.register_event_handler("request", self._handle_request)
+        self.register_event_handler("response", self._handle_response)
+        self.register_event_handler("scan-issue", self._handle_scan_issue)
+        self.register_event_handler("scan-start", self._handle_scan_start)
+        
+        # Initialize available Burp tools
         self._initialize_burp_tools()
+        
+        logger.info(f"Freeboldsec Burp MCP Client initialized - targeting {mcp_url}")
     
     def _initialize_burp_tools(self):
-        """Initialize the 22 available Burp Suite tools"""
+        """Initialize the available Burp Suite MCP tools"""
         tools = {
-            "spider": BurpTool(
-                "Spider", "spider", 
-                "Crawl target to discover content and functionality",
-                {"max_depth": 10, "forms": True, "query_strings": True}
-            ),
-            "scanner": BurpTool(
-                "Scanner", "scanner",
-                "Automated vulnerability scanner",
-                {"scan_type": "active", "insertion_points": "all"}
-            ),
-            "intruder": BurpTool(
-                "Intruder", "intruder",
-                "Automated attack tool for fuzzing",
-                {"attack_type": "sniper", "payload_type": "simple_list"}
-            ),
-            "repeater": BurpTool(
-                "Repeater", "repeater",
-                "Manual request manipulation and testing",
-                {"follow_redirects": False}
-            ),
-            "sequencer": BurpTool(
-                "Sequencer", "sequencer",
-                "Analyze randomness of session tokens",
-                {"sample_size": 1000}
-            ),
-            "decoder": BurpTool(
-                "Decoder", "decoder",
-                "Decode/encode data in various formats",
-                {"operation": "auto_detect"},
+            "get_proxy_history": BurpTool(
+                "Get Proxy History", "mcp_burpmcp_get_proxy_http_history", 
+                "Retrieve HTTP requests and responses from Burp proxy history",
+                {"count": 10, "offset": 0},
                 requires_target=False
             ),
-            "comparer": BurpTool(
-                "Comparer", "comparer",
-                "Compare two pieces of data",
-                {"comparison_type": "words"},
+            "get_proxy_history_regex": BurpTool(
+                "Get Proxy History (Regex)", "mcp_burpmcp_get_proxy_http_history_regex",
+                "Search proxy history using regex patterns",
+                {"count": 10, "offset": 0, "regex": ""},
                 requires_target=False
             ),
-            "extender": BurpTool(
-                "Extender", "extender",
-                "Manage Burp extensions",
+            "get_scanner_issues": BurpTool(
+                "Get Scanner Issues", "mcp_burpmcp_get_scanner_issues",
+                "Retrieve vulnerability issues found by Burp Scanner",
+                {"count": 10, "offset": 0},
+                requires_target=False
+            ),
+            "get_active_editor": BurpTool(
+                "Get Active Editor", "mcp_burpmcp_get_active_editor_contents",
+                "Get contents of currently active editor in Burp",
                 {},
                 requires_target=False
             ),
-            "proxy": BurpTool(
-                "Proxy", "proxy",
-                "Intercept and modify HTTP traffic",
-                {"intercept": False}
-            ),
-            "target": BurpTool(
-                "Target", "target",
-                "Manage target scope and site map",
-                {}
-            ),
-            "engagement_tools": BurpTool(
-                "Engagement Tools", "engagement",
-                "Various engagement tools (find comments, scripts, etc.)",
-                {"tool": "find_comments"}
-            ),
-            "content_discovery": BurpTool(
-                "Content Discovery", "content_discovery",
-                "Discover hidden content and functionality",
-                {"wordlist": "common", "extensions": ["php", "asp", "jsp"]}
-            ),
-            "logger": BurpTool(
-                "Logger", "logger",
-                "Log HTTP requests and responses",
-                {"log_all": True},
+            "set_active_editor": BurpTool(
+                "Set Active Editor", "mcp_burpmcp_set_active_editor_contents",
+                "Set contents of currently active editor in Burp",
+                {"text": ""},
                 requires_target=False
             ),
-            "collaborator": BurpTool(
-                "Collaborator", "collaborator",
-                "Out-of-band interaction testing",
-                {"polling_location": "default"}
+            "send_to_repeater": BurpTool(
+                "Send to Repeater", "mcp_burpmcp_create_repeater_tab",
+                "Create a new Repeater tab with the specified request",
+                {
+                    "content": "", 
+                    "tabName": "", 
+                    "targetHostname": "", 
+                    "targetPort": 443, 
+                    "usesHttps": True
+                }
             ),
-            "clickbandit": BurpTool(
-                "Clickbandit", "clickbandit",
-                "Generate clickjacking attacks",
-                {}
+            "send_to_intruder": BurpTool(
+                "Send to Intruder", "mcp_burpmcp_send_to_intruder",
+                "Send an HTTP request to Intruder",
+                {
+                    "content": "", 
+                    "tabName": "", 
+                    "targetHostname": "", 
+                    "targetPort": 443, 
+                    "usesHttps": True
+                }
             ),
-            "dom_invader": BurpTool(
-                "DOM Invader", "dom_invader",
-                "Client-side vulnerability detection",
-                {}
+            "send_http1_request": BurpTool(
+                "Send HTTP/1.1 Request", "mcp_burpmcp_send_http1_request",
+                "Issue an HTTP/1.1 request and return the response",
+                {
+                    "content": "", 
+                    "targetHostname": "", 
+                    "targetPort": 443, 
+                    "usesHttps": True
+                }
             ),
-            "infiltrator": BurpTool(
-                "Infiltrator", "infiltrator",
-                "Instrument target applications",
-                {}
+            "send_http2_request": BurpTool(
+                "Send HTTP/2 Request", "mcp_burpmcp_send_http2_request",
+                "Issue an HTTP/2 request and return the response",
+                {
+                    "headers": {}, 
+                    "pseudoHeaders": {}, 
+                    "requestBody": "", 
+                    "targetHostname": "", 
+                    "targetPort": 443, 
+                    "usesHttps": True
+                }
             ),
-            "bambdas": BurpTool(
-                "Bambdas", "bambdas",
-                "Custom Java expressions for filtering",
-                {"expression": ""},
+            "base64_encode": BurpTool(
+                "Base64 Encode", "mcp_burpmcp_base64_encode",
+                "Base64 encode the input string",
+                {"content": ""},
                 requires_target=False
             ),
-            "hackvertor": BurpTool(
-                "Hackvertor", "hackvertor",
-                "Data conversion and encoding",
-                {"tags": []},
+            "base64_decode": BurpTool(
+                "Base64 Decode", "mcp_burpmcp_base64_decode",
+                "Base64 decode the input string",
+                {"content": ""},
                 requires_target=False
             ),
-            "turbo_intruder": BurpTool(
-                "Turbo Intruder", "turbo_intruder",
-                "High-speed content discovery and fuzzing",
-                {"threads": 10, "request_engine": "http2"}
+            "url_encode": BurpTool(
+                "URL Encode", "mcp_burpmcp_url_encode",
+                "URL encode the input string",
+                {"content": ""},
+                requires_target=False
             ),
-            "param_miner": BurpTool(
-                "Param Miner", "param_miner",
-                "Identify hidden parameters",
-                {"wordlist": "default"}
+            "url_decode": BurpTool(
+                "URL Decode", "mcp_burpmcp_url_decode",
+                "URL decode the input string",
+                {"content": ""},
+                requires_target=False
             ),
-            "auth_analyzer": BurpTool(
-                "Auth Analyzer", "auth_analyzer",
-                "Authentication and authorization testing",
-                {"session_handling": "auto"}
+            "generate_random_string": BurpTool(
+                "Generate Random String", "mcp_burpmcp_generate_random_string",
+                "Generate a random string of specified length and character set",
+                {"length": 10, "characterSet": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"},
+                requires_target=False
+            ),
+            "set_proxy_intercept": BurpTool(
+                "Set Proxy Intercept", "mcp_burpmcp_set_proxy_intercept_state",
+                "Enable or disable Burp Proxy intercept",
+                {"intercepting": True},
+                requires_target=False
+            ),
+            "output_project_options": BurpTool(
+                "Output Project Options", "mcp_burpmcp_output_project_options",
+                "Output current project-level configuration in JSON format",
+                {},
+                requires_target=False
+            ),
+            "output_user_options": BurpTool(
+                "Output User Options", "mcp_burpmcp_output_user_options",
+                "Output current user-level configuration in JSON format",
+                {},
+                requires_target=False
+            ),
+            "set_project_options": BurpTool(
+                "Set Project Options", "mcp_burpmcp_set_project_options",
+                "Set project-level configuration in JSON format",
+                {"json": ""},
+                requires_target=False
+            ),
+            "set_user_options": BurpTool(
+                "Set User Options", "mcp_burpmcp_set_user_options",
+                "Set user-level configuration in JSON format",
+                {"json": ""},
+                requires_target=False
+            ),
+            "set_task_engine_state": BurpTool(
+                "Set Task Engine State", "mcp_burpmcp_set_task_execution_engine_state",
+                "Set the state of Burp's task execution engine (paused or unpaused)",
+                {"running": True},
+                requires_target=False
             )
         }
         
         self.available_tools = tools
-        logger.info(f"Initialized {len(tools)} Burp Suite tools")
+        logger.info(f"Initialized {len(tools)} Burp Suite MCP tools")
     
     async def __aenter__(self):
         """Async context manager entry"""
@@ -176,11 +307,31 @@ class BurpMCPClient:
             if not self.session:
                 self.session = aiohttp.ClientSession()
             
-            async with self.session.get(f"{self.mcp_url}/health") as response:
+            # Get session ID from SSE endpoint
+            async with self.session.get(
+                self.mcp_url,
+                headers={
+                    "Accept": "text/event-stream",
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive"
+                },
+                timeout=10
+            ) as response:
                 if response.status == 200:
-                    self.connected = True
-                    logger.info("Successfully connected to Burp Suite MCP server")
-                    return True
+                    # Read the SSE response to get the session endpoint
+                    async for line in response.content:
+                        line_str = line.decode('utf-8').strip()
+                        if line_str.startswith('data: /message?sessionId='):
+                            session_path = line_str[6:]  # Remove 'data: '
+                            self.session_id = session_path.split('sessionId=')[1]
+                            base_url = self.mcp_url.replace('/sse', '')
+                            self.message_endpoint = f"{base_url}{session_path}"
+                            self.connected = True
+                            logger.info(f"Connected to Burp MCP with session: {self.session_id}")
+                            return True
+                    
+                    logger.warning("No session ID found in SSE response")
+                    return False
                 else:
                     logger.warning(f"MCP server returned status {response.status}")
                     return False
@@ -190,8 +341,8 @@ class BurpMCPClient:
             self.connected = False
             return False
     
-    async def send_mcp_request(self, tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        """Send request to Burp Suite via MCP protocol"""
+    async def send_mcp_request(self, tool_name: str, parameters: Dict[str, Any], timeout: int = 30, max_retries: int = 3) -> Dict[str, Any]:
+        """Send request to Burp Suite via MCP protocol with robust async handling"""
         
         if not self.connected:
             await self.test_connection()
@@ -214,156 +365,172 @@ class BurpMCPClient:
             }
         }
         
+        # Retry logic with exponential backoff
+        for attempt in range(max_retries):
+            try:
+                timeout_obj = aiohttp.ClientTimeout(total=timeout)
+                async with self.session.post(
+                    self.message_endpoint,
+                    json=mcp_request,
+                    headers={"Content-Type": "application/json"},
+                    timeout=timeout_obj
+                ) as response:
+                    
+                    if response.status == 200:
+                        result = await response.json()
+                        logger.info(f"Successfully executed {tool_name}")
+                        return result
+                        
+                    elif response.status == 202:
+                        # Accepted - async processing, poll for result
+                        logger.info(f"Request accepted (202) for {tool_name}, polling for result...")
+                        return await self._poll_for_mcp_result(tool_name, mcp_request["id"])
+                        
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"MCP request failed: {response.status} - {error_text}")
+                        if response.status >= 500 and attempt < max_retries - 1:
+                            # Server error, retry
+                            await asyncio.sleep(2 ** attempt)
+                            continue
+                        raise Exception(f"MCP request failed: {response.status}")
+                        
+            except asyncio.TimeoutError:
+                logger.warning(f"MCP request timeout on attempt {attempt + 1}/{max_retries}")
+                if attempt == max_retries - 1:
+                    raise Exception(f"MCP request timed out after {max_retries} attempts")
+                await asyncio.sleep(2 ** attempt)
+                
+            except Exception as e:
+                logger.error(f"Error sending MCP request (attempt {attempt + 1}): {e}")
+                if attempt == max_retries - 1:
+                    raise
+                await asyncio.sleep(2 ** attempt)
+                
+    async def _poll_for_mcp_result(self, tool_name: str, request_id: str, max_polls: int = 15, poll_interval: float = 2.0) -> Dict[str, Any]:
+        """Poll for async MCP result with timeout"""
+        logger.info(f"Polling for result of {tool_name} (ID: {request_id})")
+        
+        for poll_count in range(max_polls):
+            await asyncio.sleep(poll_interval)
+            
+            try:
+                # Check if result is ready (implementation depends on MCP server behavior)
+                status_request = {
+                    "jsonrpc": "2.0",
+                    "id": f"{request_id}_status_{poll_count}",
+                    "method": "status/check",
+                    "params": {"request_id": request_id}
+                }
+                
+                async with self.session.post(
+                    self.message_endpoint,
+                    json=status_request,
+                    headers={"Content-Type": "application/json"},
+                    timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    
+                    if response.status == 200:
+                        result = await response.json()
+                        if result.get("result", {}).get("status") == "completed":
+                            logger.info(f"Async result ready for {tool_name} after {poll_count + 1} polls")
+                            return result
+                        elif result.get("result", {}).get("status") == "failed":
+                            error_msg = result.get("result", {}).get("error", "Unknown error")
+                            raise Exception(f"Async MCP request failed: {error_msg}")
+                        else:
+                            logger.debug(f"Still processing {tool_name}... poll {poll_count + 1}/{max_polls}")
+                            continue
+                            
+                    elif response.status == 404:
+                        # Status endpoint not supported, try original request again
+                        logger.debug(f"Status check not supported, retrying original request")
+                        return await self._retry_original_request(tool_name, request_id)
+                        
+                    else:
+                        logger.warning(f"Status check failed with HTTP {response.status}")
+                        
+            except Exception as e:
+                logger.warning(f"Polling attempt {poll_count + 1} failed: {e}")
+                
+        # Timeout reached - return partial result
+        logger.warning(f"Polling timeout for {tool_name} after {max_polls} attempts")
+        return {
+            "result": {
+                "status": "timeout", 
+                "message": f"Async operation timed out after {max_polls * poll_interval}s",
+                "tool_name": tool_name,
+                "request_id": request_id
+            }
+        }
+        
+    async def _retry_original_request(self, tool_name: str, request_id: str) -> Dict[str, Any]:
+        """Retry the original request to see if it's ready"""
+        tool = self.available_tools.get(tool_name)
+        if not tool:
+            raise ValueError(f"Unknown tool: {tool_name}")
+            
         try:
-            async with self.session.post(
-                f"{self.mcp_url}/rpc",
-                json=mcp_request,
-                headers={"Content-Type": "application/json"}
+            async with self.session.get(
+                f"{self.message_endpoint}?request_id={request_id}",
+                timeout=aiohttp.ClientTimeout(total=10)
             ) as response:
                 
                 if response.status == 200:
-                    result = await response.json()
-                    logger.info(f"Successfully executed {tool_name}")
-                    return result
+                    content_type = response.headers.get('content-type', '')
+                    if 'json' in content_type:
+                        return await response.json()
+                    else:
+                        text_result = await response.text()
+                        return {"result": {"content": text_result, "status": "completed"}}
+                        
+                elif response.status == 202:
+                    # Still processing
+                    return {
+                        "result": {
+                            "status": "processing", 
+                            "message": "Request still processing"
+                        }
+                    }
                 else:
                     error_text = await response.text()
-                    logger.error(f"MCP request failed: {response.status} - {error_text}")
-                    raise Exception(f"MCP request failed: {response.status}")
+                    raise Exception(f"Retry failed: {response.status} - {error_text}")
                     
         except Exception as e:
-            logger.error(f"Error sending MCP request: {e}")
-            raise
+            logger.error(f"Retry request failed: {e}")
+            return {
+                "result": {
+                    "status": "error", 
+                    "message": str(e)
+                }
+            }
     
-    async def scan_target(self, target_url: str, scan_type: str = "active") -> Dict[str, Any]:
-        """Run Burp Scanner against target"""
-        
+    # New methods using actual MCP tools
+    async def get_proxy_history(self, count: int = 10, offset: int = 0) -> Dict[str, Any]:
+        """Get HTTP requests/responses from proxy history"""
+        parameters = {"count": count, "offset": offset}
+        return await self.send_mcp_request("get_proxy_history", parameters)
+    
+    async def search_proxy_history(self, regex: str, count: int = 10, offset: int = 0) -> Dict[str, Any]:
+        """Search proxy history with regex pattern"""
+        parameters = {"regex": regex, "count": count, "offset": offset}
+        return await self.send_mcp_request("get_proxy_history_regex", parameters)
+    
+    async def send_http_request(self, target_hostname: str, target_port: int, content: str, 
+                               uses_https: bool = False) -> Dict[str, Any]:
+        """Send HTTP/1.1 request and get response"""
         parameters = {
-            "target_url": target_url,
-            "scan_type": scan_type,
-            "scope": "in_scope_only"
+            "targetHostname": target_hostname,
+            "targetPort": target_port,
+            "usesHttps": uses_https,
+            "content": content
         }
-        
-        return await self.send_mcp_request("scanner", parameters)
+        return await self.send_mcp_request("send_http1_request", parameters)
     
-    async def spider_target(self, target_url: str, max_depth: int = 10) -> Dict[str, Any]:
-        """Run Burp Spider to crawl target"""
-        
-        parameters = {
-            "target_url": target_url,
-            "max_depth": max_depth,
-            "forms": True,
-            "query_strings": True
-        }
-        
-        return await self.send_mcp_request("spider", parameters)
-    
-    async def discover_endpoints(self, target_url: str) -> List[str]:
-        """Discover endpoints using multiple Burp tools"""
-        
-        discovered_endpoints = []
-        
-        try:
-            # Use Spider for crawling
-            spider_result = await self.spider_target(target_url)
-            if spider_result.get("result", {}).get("endpoints"):
-                discovered_endpoints.extend(spider_result["result"]["endpoints"])
-            
-            # Use Content Discovery
-            content_discovery_result = await self.send_mcp_request("content_discovery", {
-                "target_url": target_url,
-                "wordlist": "common"
-            })
-            
-            if content_discovery_result.get("result", {}).get("found_paths"):
-                discovered_endpoints.extend(content_discovery_result["result"]["found_paths"])
-            
-            # Remove duplicates
-            unique_endpoints = list(set(discovered_endpoints))
-            logger.info(f"Discovered {len(unique_endpoints)} unique endpoints")
-            
-            return unique_endpoints
-            
-        except Exception as e:
-            logger.error(f"Endpoint discovery failed: {e}")
-            return []
-    
-    async def run_intruder_attack(
-        self, 
-        target_url: str, 
-        payload_positions: List[str],
-        payloads: List[str],
-        attack_type: str = "sniper"
-    ) -> Dict[str, Any]:
-        """Run Burp Intruder attack"""
-        
-        parameters = {
-            "target_url": target_url,
-            "attack_type": attack_type,
-            "payload_positions": payload_positions,
-            "payloads": payloads
-        }
-        
-        return await self.send_mcp_request("intruder", parameters)
-    
-    async def analyze_session_tokens(self, target_url: str, token_name: str) -> Dict[str, Any]:
-        """Analyze session token randomness with Sequencer"""
-        
-        parameters = {
-            "target_url": target_url,
-            "token_name": token_name,
-            "sample_size": 1000
-        }
-        
-        return await self.send_mcp_request("sequencer", parameters)
-    
-    async def test_collaborator_interactions(self, target_url: str) -> Dict[str, Any]:
-        """Test for out-of-band interactions using Collaborator"""
-        
-        parameters = {
-            "target_url": target_url,
-            "interaction_types": ["dns", "http", "smtp"]
-        }
-        
-        return await self.send_mcp_request("collaborator", parameters)
-    
-    async def generate_clickjacking_poc(self, target_url: str) -> Dict[str, Any]:
-        """Generate clickjacking proof-of-concept with Clickbandit"""
-        
-        parameters = {
-            "target_url": target_url,
-            "frame_busting_checks": True
-        }
-        
-        return await self.send_mcp_request("clickbandit", parameters)
-    
-    async def mine_hidden_parameters(self, target_url: str) -> Dict[str, Any]:
-        """Find hidden parameters using Param Miner"""
-        
-        parameters = {
-            "target_url": target_url,
-            "wordlist": "default",
-            "check_headers": True,
-            "check_cookies": True
-        }
-        
-        return await self.send_mcp_request("param_miner", parameters)
-    
-    async def get_site_map(self) -> Dict[str, Any]:
-        """Get the current site map from Burp"""
-        
-        return await self.send_mcp_request("target", {"action": "get_site_map"})
-    
-    async def get_scan_results(self, scan_id: Optional[str] = None) -> Dict[str, Any]:
-        """Get vulnerability scan results"""
-        
-        parameters = {}
-        if scan_id:
-            parameters["scan_id"] = scan_id
-        
-        return await self.send_mcp_request("scanner", {
-            "action": "get_results",
-            **parameters
-        })
+    async def get_scanner_issues(self, count: int = 10, offset: int = 0) -> Dict[str, Any]:
+        """Get vulnerability findings from scanner"""
+        parameters = {"count": count, "offset": offset}
+        return await self.send_mcp_request("get_scanner_issues", parameters)
     
     def get_available_tools(self) -> List[str]:
         """Get list of available Burp tools"""

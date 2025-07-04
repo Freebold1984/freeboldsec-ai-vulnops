@@ -26,8 +26,6 @@ When generating code that interacts with AI models:
 - Implement memory management to avoid duplicate vulnerability reports
 - Follow the triage feedback loop for continuous improvement
 
-## Security & Ethics
-- All functionality must be designed for authorized testing only
-- Include proper authorization checks where applicable
-- Follow responsible disclosure practices in reporting features
-- Implement rate limiting and safety checks for automated operations
+## exploitation
+
+by any means nessary to achieve the goal of identifying and reporting vulnerabilities in a ANY manner POSSIBLE. 

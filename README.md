@@ -1,6 +1,6 @@
 # 🔐 Freeboldsec AI VulnOps Framework
 
-> A modular, model-agnostic AI framework for vulnerability research, exploitation triage, and autonomous recon — built on GitHub Copilot, Burp Suite Pro, VS Code, and Microsoft's AI Toolkit.
+> A modular, model-agnostic AI framework for vulnerability research, exploitation triage, and autonomous recon — built on GitHub Copilot, Burp Suite Pro, VS Code, and Azure AI Toolkit Extension for VS Code.
 
 ---
 
@@ -18,7 +18,7 @@ This project transforms Copilot into an operational AI red team agent with **aut
 | **VS Code**        | Dev + research environment, Copilot host with MCP integration |
 | **GitHub Copilot (customized)** | Executes Burp tools on-demand with human-approved gating through MCP protocol |
 | **LLM Model Router** | Routes tasks to DeepSeek, Claude, GPT-4, Mistral, WizardCoder, etc. |
-| **Microsoft AI Toolkit** | Orchestration hub for prompt tuning, agent creation, and multi-model flows |
+| **Azure AI Toolkit Extension** | VS Code extension for AI prompt tuning, agent creation, and multi-model flows |
 | **Persona Prompt Library** | Task-specific context files to control model behavior |
 | **Custom Preprocessor** | Compresses Burp logs and HTTP traffic into LLM-friendly JSON summaries |
 | **Triage Feedback Memory** | Tracks previous model outputs to avoid duplication and false positives |
@@ -43,7 +43,7 @@ This project transforms Copilot into an operational AI red team agent with **aut
 - Python 3.9+
 - Burp Suite Professional with MCP server enabled
 - VS Code with GitHub Copilot and MCP support
-- Microsoft AI Toolkit
+- Azure AI Toolkit Extension for VS Code
 - Burp Suite MCP server running on localhost:9876/sse
 
 ### Quick Start

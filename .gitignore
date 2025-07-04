@@ -1,79 +1,66 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+# =============================================================================
+# FREEBOLDSEC AI VULNOPS - STRICT WHITELIST APPROACH
+# ONLY SAFE FRAMEWORK FILES ARE ALLOWED IN GITHUB
+# =============================================================================
 
-# Virtual environments
-venv/
-env/
-ENV/
-env.bak/
-venv.bak/
+# EXCLUDE EVERYTHING BY DEFAULT
+*
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# =============================================================================
+# WHITELIST: SAFE FRAMEWORK FILES ONLY
+# =============================================================================
 
-# Logs
-*.log
-logs/
-*.out
+# Core Framework Code
+!core/
+!core/__init__.py
+!core/main.py
+!core/burp_mcp_client.py
+!core/memory_manager.py
+!core/model_dispatcher.py
+!core/preprocessor.py
 
-# API Keys and Secrets
-.env
-config/secrets.yaml
-config/api_keys.yaml
-*_secrets.yaml
-*_keys.yaml
+# Persona Templates (Generic, No Target-Specific Content)
+!personas/
+!personas/__init__.py
+!personas/auth_logic_auditor.md
+!personas/exploit_architect.md
+!personas/recon_strategist.md
+!personas/report_engineer.md
+!personas/triage_analyst.md
+!personas/persona_loader.py
 
-# Generated/Processed Files
-processed_*.json
-output_*.json
-reports/*.md
-reports/*.html
-temp/
-tmp/
+# Configuration Templates (No Real Credentials)
+!config/
+!config/burp_tools.yaml
+!config/mcp_settings.yaml
+!config/models.yaml
+!config/settings.py
+!config/settings.yaml
 
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Documentation and Setup
+!README.md
+!DEPLOYMENT.md
+!GITHUB_READY.md
+!requirements.txt
+!main.py
+!setup_burp_mcp.py
 
-# Burp Suite
-*.burp
-*.state
+# Examples (Synthetic Data Only)
+!examples/
+!examples/sample_burp_logs/
+!examples/sample_burp_logs/sample_traffic_clean.har
+!examples/sample_reports/
+!examples/sample_reports/sql_injection_report.md
 
-# Test files
-test_*.har
-test_*.json
-debug_*.txt
+# Project Metadata
+!.github/
+!.github/copilot-instructions.md
+!.gitignore
 
-# Local configuration overrides
-config/local_*.yaml
-config/override_*.yaml
+# Test Framework (No Real Assessment Data)
+!test_context_truncation.py
+
+# =============================================================================
+# EVERYTHING ELSE IS EXCLUDED - NO EXCEPTIONS
+# ALL HERTZ RESEARCH, ASSESSMENT DATA, AND TOOLS ARE PROTECTED
+# =============================================================================

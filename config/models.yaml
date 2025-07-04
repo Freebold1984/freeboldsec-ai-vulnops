@@ -1,14 +1,64 @@
 models:
-  # GitHub Copilot for Burp integration
-  github-copilot:
-    provider: "github"
-    model_id: "copilot"
-    max_tokens: 2000
+  # ==================== PRODUCTION MODELS ====================
+  
+  # High-performance hosted models optimized for specific tasks
+  claude-3-opus:
+    provider: "anthropic"
+    model_id: "claude-3-opus-20240229"
+    max_tokens: 4096
     temperature: 0.1
-    specialized_for: ["burp_integration"]
-    description: "GitHub Copilot for Burp Suite tool interactions"
-
-  # Ollama local Gemini model
+    api_base: "https://api.anthropic.com/v1"
+    specialized_for: ["recon", "auth_audit"]
+    description: "Anthropic's flagship model optimized for deep security analysis"
+    vram_required_gb: 0  # Hosted model
+    priority: 1
+    hardware_cluster: null
+    context_window: 200000
+    response_format: "json_object"
+    cost_per_1k_tokens: 0.015
+    deployment:
+      type: "api"
+      status: "active"
+  
+  claude-3-sonnet:
+    provider: "anthropic"
+    model_id: "claude-3-sonnet-20240229"
+    max_tokens: 4096
+    temperature: 0.2
+    api_base: "https://api.anthropic.com/v1"
+    specialized_for: ["triage", "report"]
+    description: "Fast and efficient model for vulnerability triage and reporting"
+    vram_required_gb: 0  # Hosted model
+    priority: 2
+    hardware_cluster: null
+    context_window: 180000
+    response_format: "json_object"
+    cost_per_1k_tokens: 0.008
+    deployment:
+      type: "api"
+      status: "active"
+  
+  gpt-4o:
+    provider: "openai"
+    model_id: "gpt-4o"
+    max_tokens: 4096
+    temperature: 0.2
+    api_base: "https://api.openai.com/v1"
+    specialized_for: ["triage", "report", "exploit"]
+    description: "OpenAI's versatile model with strong capabilities across all tasks"
+    vram_required_gb: 0  # Hosted model
+    priority: 1
+    hardware_cluster: null
+    context_window: 128000
+    response_format: "json_object"
+    cost_per_1k_tokens: 0.01
+    deployment:
+      type: "api"
+      status: "active"
+  
+  # ==================== LOCAL INFERENCE MODELS ====================
+  
+  # Models optimized for local inference on A10 GPU
   gemini-2.5-pro-local:
     provider: "ollama"
     model_id: "gemini-2.5-pro-preview-06-05"
@@ -16,8 +66,15 @@ models:
     temperature: 0.2
     specialized_for: ["triage", "recon", "report"]
     description: "Local Gemini model via Ollama for offline analysis"
-
-  # Additional local models via Ollama CLI
+    vram_required_gb: 20
+    priority: 3
+    hardware_cluster: "fierce-cloud-gja"
+    context_window: 32000
+    deployment:
+      type: "local"
+      status: "active"
+      container: "ollama"
+  
   phi4-local:
     provider: "ollama"
     model_id: "phi-4-multimodal-instruct"
@@ -25,127 +82,251 @@ models:
     temperature: 0.2
     specialized_for: ["exploit", "report"]
     description: "Local Phi-4 multimodal instruct via Ollama CLI"
+    vram_required_gb: 20
+    priority: 3
+    hardware_cluster: "fierce-cloud-gja"
+    context_window: 16000
+    deployment:
+      type: "local"
+      status: "active"
+      container: "ollama"
+  
+  # ==================== FINE-TUNED MODELS ====================
+  
+  # Custom-trained models optimized for security tasks on H100 clusters
+  vulnops-llama3-70b:
+    provider: "internal"
+    model_id: "freeboldsec/vulnops-llama3-70b-v1"
+    max_tokens: 4096
+    temperature: 0.2
+    api_base: "http://electric-falcon-81d:8000/v1"
+    specialized_for: ["triage", "recon", "exploit", "auth_audit"]
+    description: "Finetuned Llama3-70B model for vulnerability operations"
+    vram_required_gb: 90
+    priority: 1
+    hardware_cluster: "electric-falcon-81d"
+    context_window: 100000
+    training:
+      base_model: "meta-llama/llama-3-70b"
+      fine_tuning: "LoRA"
+      lora_rank: 64
+      lora_alpha: 32
+      dataset_size: "4.8M examples"
+      training_tokens: "12B"
+      epochs: 3
+      batch_size: 32
+      learning_rate: 2e-5
+      hardware: "GH200 Grace Hopper"
+    deployment:
+      type: "vllm"
+      status: "active"
+      container: "freeboldsec/vulnops-llama3:latest"
+      quantization: "AWQ-4bit"
+  
+  vulnops-mistral-8x7b-moe:
+    provider: "internal"
+    model_id: "freeboldsec/vulnops-mistral-moe-v1"
+    max_tokens: 4096
+    temperature: 0.1
+    api_base: "http://electric-breeze-e87:8000/v1"
+    specialized_for: ["exploit", "auth_audit", "recon"]
+    description: "Mixture of Experts model optimized for exploit generation"
+    vram_required_gb: 640
+    priority: 1
+    hardware_cluster: "electric-breeze-e87"
+    context_window: 128000
+    training:
+      base_model: "mistralai/Mistral-8x7B-MoE"
+      fine_tuning: "full"
+      mixture_of_experts: true
+      experts: 8
+      dataset_size: "12M examples"
+      training_tokens: "20B"
+      epochs: 2
+      batch_size: 64
+      learning_rate: 1e-5
+      hardware: "8x H100 SXM5"
+    deployment:
+      type: "deepspeed"
+      status: "active"
+      container: "freeboldsec/vulnops-moe:latest"
+      zero_stage: 3
+  
+  vulnops-mamba-3b:
+    provider: "internal"
+    model_id: "freeboldsec/vulnops-mamba-3b-v1"
+    max_tokens: 2048
+    temperature: 0.2
+    api_base: "http://hyper-spark-cs9:8000/v1"
+    specialized_for: ["triage", "report"]
+    description: "Fast and efficient Mamba SSM model for quick vulnerability triage"
+    vram_required_gb: 12
+    priority: 2
+    hardware_cluster: "hyper-spark-cs9"
+    context_window: 64000
+    training:
+      base_model: "state-spaces/mamba-3b"
+      fine_tuning: "full"
+      state_space_model: true
+      dataset_size: "2.5M examples"
+      training_tokens: "5B"
+      epochs: 4
+      batch_size: 48
+      learning_rate: 3e-5
+      hardware: "4x H100 SXM5"
+    deployment:
+      type: "triton"
+      status: "active"
+      container: "freeboldsec/vulnops-mamba:latest"
+      quantization: "FP16"
+  
+  # ==================== MULTI-MODAL MODELS ====================
+  
+  vulnops-llava-34b:
+    provider: "internal"
+    model_id: "freeboldsec/vulnops-llava-34b-v1"
+    max_tokens: 4096
+    temperature: 0.2
+    api_base: "http://kinetic-apex-h1a:8000/v1"
+    specialized_for: ["triage", "recon", "report"]
+    description: "Multi-modal model for analyzing UI and screenshot vulnerabilities"
+    vram_required_gb: 80
+    priority: 2
+    hardware_cluster: "kinetic-apex-h1a"
+    context_window: 32000
+    modalities: ["text", "image"]
+    training:
+      base_model: "llava-hf/llava-v1.6-34b"
+      fine_tuning: "LoRA"
+      lora_rank: 32
+      lora_alpha: 16
+      dataset_size: "1.2M examples"
+      training_tokens: "4B"
+      epochs: 2
+      batch_size: 16
+      learning_rate: 1e-5
+      hardware: "8x H100 SXM5"
+    deployment:
+      type: "vllm"
+      status: "active"
+      container: "freeboldsec/vulnops-llava:latest"
+      quantization: "AWQ-4bit"
 
-# Model Selection Strategy
+  # ==================== EMBEDDING MODELS ====================
+  
+  vulnerability-embeddings:
+    provider: "internal"
+    model_id: "freeboldsec/vulnops-e5-large-v2"
+    max_tokens: 512
+    temperature: 0.0
+    api_base: "http://fierce-cloud-gja:8001/v1"
+    specialized_for: ["embedding"]
+    description: "Custom embedding model for vulnerability similarity matching"
+    vram_required_gb: 4
+    priority: 3
+    hardware_cluster: "fierce-cloud-gja"
+    embedding_dimensions: 1024
+    training:
+      base_model: "intfloat/e5-large-v2"
+      fine_tuning: "full"
+      dataset_size: "5M pairs"
+      epochs: 5
+      batch_size: 128
+      learning_rate: 5e-5
+      hardware: "A10"
+    deployment:
+      type: "onnx"
+      status: "active"
+      container: "freeboldsec/vulnops-embeddings:latest"
+      quantization: "FP16"
+
+# Model selection strategy
 selection_strategy:
-  # Primary model for each task type
-  default_models:
-    burp_integration: "github-copilot"
-    triage: "gemini-2.5-pro-local"
-    recon: "gemini-2.5-pro-local"
-    exploit: "phi4-local"
-    report: "phi4-local"
-    auth_audit: "phi4-local"
-
-  # Fallback models if primary is unavailable
-  fallback_models:
-    triage: []
-    recon: []
-    exploit: []
-    report: []
-    auth_audit: []
-
-# Performance and Cost Optimization
-optimization:
-  enable_caching: true
-  cache_duration_hours: 24
-  rate_limits:
-    ollama: 60
-  max_monthly_spend:
-    ollama: 100.00
-  max_context_tokens:
-    small_tasks: 2000
-    medium_tasks: 3000
-    large_tasks: 4000
-
-# Model Routing Rules
-routing_rules:
-  # Route based on file type and content
-  file_type_routing:
-    "*.json":
-      contains_burp_log: "triage"
-      contains_swagger: "recon"
-      contains_vulnerability: "exploit"
+  triage:
+    primary: "vulnops-llama3-70b"
+    fallback: ["claude-3-sonnet", "gemini-2.5-pro-local"]
     
-    "*.md":
-      contains_report: "report"
-      contains_findings: "report"
+  recon:
+    primary: "claude-3-opus"
+    fallback: ["vulnops-mistral-8x7b-moe", "gemini-2.5-pro-local"]
     
-    "*.js":
-      always: "recon"
+  exploit:
+    primary: "vulnops-mistral-8x7b-moe"
+    fallback: ["gpt-4o", "phi4-local"]
     
-    "*.xml":
-      contains_soap: "recon"
-      contains_wsdl: "recon"
-  
-  # Route based on content analysis
-  content_routing:
-    keywords:
-      vulnerability_types: ["xss", "sqli", "idor", "ssrf", "csrf"]
-      auth_keywords: ["jwt", "oauth", "saml", "authentication", "authorization"]
-      recon_keywords: ["endpoint", "api", "swagger", "javascript", "subdomain"]
-      exploit_keywords: ["payload", "poc", "exploit", "shell", "reverse"]
-  
-  # Load balancing for high-volume tasks
-  load_balancing:
-    enable: true
-    max_concurrent_requests: 10
-    queue_timeout_seconds: 300
+  report:
+    primary: "claude-3-sonnet"
+    fallback: ["vulnops-mamba-3b", "phi4-local"]
+    
+  auth_audit:
+    primary: "vulnops-llama3-70b"
+    fallback: ["claude-3-opus", "gpt-4o"]
 
-# Quality Assurance
-quality_controls:
-  # Minimum confidence thresholds
-  confidence_thresholds:
-    triage: 0.8
-    recon: 0.7
-    exploit: 0.9
-    report: 0.85
-    auth_audit: 0.8
-  
-  # Cross-validation settings
-  enable_cross_validation: true
-  cross_validation_models: 2  # Use 2 models for critical findings
-  consensus_threshold: 0.7
-  
-  # Output validation
-  validate_outputs:
-    json_structure: true
-    required_fields: true
-    exploit_safety: true  # Prevent harmful payloads
-    report_completeness: true
+# GPU Cluster Configuration
+gpu_clusters:
+  fierce-cloud-gja:
+    type: "A10"
+    vram_gb: 24
+    count: 1
+    region: "us-east-1"
+    status: "active"
+    usage: "development/testing/inference"
+    
+  electric-falcon-81d:
+    type: "GH200 Grace Hopper"
+    vram_gb: 96
+    count: 1
+    region: "us-east-3"
+    status: "active"
+    usage: "single GPU beast training"
+    
+  electric-breeze-e87:
+    type: "H100 SXM5"
+    vram_gb: 80
+    count: 8
+    region: "us-west-3"
+    status: "active"
+    usage: "DISTRIBUTED TRAINING MONSTER"
+    
+  hyper-spark-cs9:
+    type: "H100 SXM5"
+    vram_gb: 80
+    count: 4
+    region: "us-south-2"
+    status: "booting"
+    usage: "MEDIUM DISTRIBUTED CLUSTER"
+    
+  kinetic-apex-h1a:
+    type: "H100 SXM5"
+    vram_gb: 80
+    count: 8
+    region: "us-central-1"
+    status: "booting"
+    usage: "SECOND DISTRIBUTED MONSTER"
 
-# Logging and Monitoring
-logging:
-  log_level: "INFO"
-  log_api_calls: true
-  log_token_usage: true
-  log_costs: true
+# ==================== VULNERABILITY DATABASES ====================
   
-  # Sensitive data handling
-  redact_api_keys: true
-  redact_sensitive_data: true
-  retention_days: 90
-
-# Integration Settings
-integrations:
-  # Burp Suite MCP integration
-  burp_mcp:
-    primary_handler: "github-copilot"
-    auto_import_logs: true
-    real_time_analysis: true
-    batch_processing: true
-    data_pipeline:
-      - source: "github-copilot"
-      - analysis: ["gemini-2.5-pro-local", "phi4-local"]
-  
-  # GitHub integration for report storage
-  github:
-    auto_create_issues: false
-    repository: "security-findings"
-    branch: "main"
-  
-  # Notification settings
-  notifications:
-    enable_alerts: true
-    critical_findings_webhook: "${WEBHOOK_URL}"
-    daily_summary_email: "${NOTIFICATION_EMAIL}"
+  vulners-api:
+    provider: "vulners"
+    model_id: "vulners-audit-api-v3"
+    api_key: "X94EW99XXT3CVYT1REJPGJHT39JZ46S41WLO2IYA9Q2K303QIH2Z30HCHDITFGWM"
+    api_base: "https://vulners.com/api/v3"
+    specialized_for: ["triage", "recon"]
+    description: "Vulners vulnerability database API for real-time CVE detection"
+    priority: 1
+    endpoints:
+      audit: "/audit/audit/"
+      software: "/burp/software/" 
+      cpe: "/burp/cpe/"
+      bulletin: "/search/id/"
+      api_ref: "/apiKey/apiKey/"
+    params:
+      os: ["debian", "ubuntu", "centos", "rhel", "windows", "macos"]
+      default_os: "debian"
+      max_chunk_size: 100
+    integration:
+      type: "vulnerability_database"
+      cache_results: true
+      cache_ttl_hours: 24
+      update_frequency: "daily"
+      risk_scoring: "cvss_v3"

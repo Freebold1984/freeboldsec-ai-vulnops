@@ -1,53 +1,240 @@
 """
-Memory Manager - Tracks previous model outputs to avoid duplication and false positives
+Memory Manager - Provides context memory for cross-request vulnerability analysis
 """
 
-import json
+import collections
 import logging
+import time
 import sqlite3
+import json
 import hashlib
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional, Callable, Union, Deque, Set
 from datetime import datetime, timedelta
 from pathlib import Path
-from dataclasses import dataclass, asdict
-from enum import Enum
+from dataclasses import asdict
+
+# Assuming these are defined in a local datatypes module
+# from .datatypes import Finding, FindingType, FeedbackEntry
 
 logger = logging.getLogger(__name__)
 
 
-class FindingType(Enum):
+class MemoryManager:
+    """
+    Advanced memory management for the Freeboldsec AI VulnOps Framework
+    
+    Maintains in-memory storage of recent requests, responses, and analysis results
+    for cross-request correlation and vulnerability pattern detection.
+    """
+    
+    def __init__(self, max_size: int = 100):
+        """
+        Initialize the memory manager
+        
+        Args:
+            max_size: Maximum number of items to store per category
+        """
+        self.max_size = max_size
+        self.memory: Dict[str, Deque[Any]] = collections.defaultdict(
+            lambda: collections.deque(maxlen=max_size)
+        )
+        self.correlations: Dict[str, Dict[str, Any]] = {}
+        self.timestamps: Dict[str, Dict[str, float]] = collections.defaultdict(dict)
+        
+        logger.debug(f"MemoryManager initialized with max_size={max_size}")
+    
+    def add(self, category: str, item: Any, key: Optional[str] = None) -> None:
+        """
+        Add an item to memory
+        
+        Args:
+            category: Category for the item (e.g., "request", "response", "injection_points")
+            item: The data to store
+            key: Optional key for direct access to this item
+        """
+        self.memory[category].append(item)
+        
+        if key:
+            # Store a reference to the item with a key for direct access
+            self.correlations[f"{category}:{key}"] = item
+            self.timestamps[category][key] = time.time()
+            
+        # Cleanup old correlations periodically
+        if len(self.correlations) > self.max_size * 2:
+            self._cleanup_old_correlations()
+    
+    def get(self, category: str, matcher: Optional[Callable[[Any], bool]] = None) -> Optional[Any]:
+        """
+        Get items from memory, optionally filtered by a matcher function
+        
+        Args:
+            category: Category to retrieve from
+            matcher: Optional function that takes an item and returns True for matches
+            
+        Returns:
+            The matched item(s) or None if not found
+        """
+        if not matcher:
+            # Just return the most recent item if it exists
+            try:
+                return self.memory[category][-1] if self.memory[category] else None
+            except (KeyError, IndexError):
+                return None
+        
+        # Search for matching items from newest to oldest
+        for item in reversed(self.memory[category]):
+            try:
+                if matcher(item):
+                    return item
+            except Exception:
+                # Skip items that cause errors in the matcher
+                continue
+                
+        return None
+    
+    def get_by_key(self, category: str, key: str) -> Optional[Any]:
+        """
+        Get an item by its category and key
+        
+        Args:
+            category: Category of the item
+            key: Key of the item
+            
+        Returns:
+            The item if found, None otherwise
+        """
+        correlation_key = f"{category}:{key}"
+        return self.correlations.get(correlation_key)
+    
+    def get_all(self, category: str, matcher: Optional[Callable[[Any], bool]] = None) -> List[Any]:
+        """
+        Get all items from a category, optionally filtered by a matcher function
+        
+        Args:
+            category: Category to retrieve from
+            matcher: Optional function that takes an item and returns True for matches
+            
+        Returns:
+            List of matching items
+        """
+        if category not in self.memory:
+            return []
+            
+        if not matcher:
+            # Return all items in the category
+            return list(self.memory[category])
+            
+        # Filter items using the matcher
+        return [item for item in self.memory[category] if matcher(item)]
+    
+    def exists(self, category: str, matcher: Callable[[Any], bool]) -> bool:
+        """
+        Check if an item exists in memory
+        
+        Args:
+            category: Category to check
+            matcher: Function that takes an item and returns True for matches
+            
+        Returns:
+            True if a matching item exists, False otherwise
+        """
+        return self.get(category, matcher) is not None
+    
+    def remove(self, category: str, matcher: Callable[[Any], bool]) -> bool:
+        """
+        Remove items matching a condition
+        
+        Args:
+            category: Category to remove from
+            matcher: Function that takes an item and returns True for matches
+            
+        Returns:
+            True if any items were removed, False otherwise
+        """
+        if category not in self.memory:
+            return False
+            
+        original_len = len(self.memory[category])
+        self.memory[category] = collections.deque(
+            [item for item in self.memory[category] if not matcher(item)],
+            maxlen=self.max_size
+        )
+        
+        return len(self.memory[category]) < original_len
+    
+    def clear(self, category: Optional[str] = None) -> None:
+        """
+        Clear memory for a category or all categories
+        
+        Args:
+            category: Category to clear, or None to clear all categories
+        """
+        if category:
+            self.memory[category].clear()
+            # Also clear associated correlations
+            keys_to_remove = [k for k in self.correlations if k.startswith(f"{category}:")]
+            for key in keys_to_remove:
+                del self.correlations[key]
+            if category in self.timestamps:
+                self.timestamps[category].clear()
+        else:
+            self.memory.clear()
+            self.correlations.clear()
+            self.timestamps.clear()
+            
+        logger.debug(f"Cleared memory for {'all categories' if category is None else category}")
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about the memory usage
+        
+        Returns:
+            Dictionary with memory statistics
+        """
+        return {
+            "categories": list(self.memory.keys()),
+            "items_per_category": {k: len(v) for k, v in self.memory.items()},
+            "correlations": len(self.correlations),
+            "total_items": sum(len(v) for v in self.memory.values())
+        }
+    
+    def _cleanup_old_correlations(self, max_age: int = 3600) -> None:
+        """
+        Remove old correlations to prevent memory leaks
+        
+        Args:
+            max_age: Maximum age in seconds for correlations to keep
+        """
+        now = time.time()
+        categories_to_check = list(self.timestamps.keys())
+        
+        for category in categories_to_check:
+            keys_to_remove = []
+            
+            for key, timestamp in self.timestamps[category].items():
+                if now - timestamp > max_age:
+                    keys_to_remove.append(key)
+                    correlation_key = f"{category}:{key}"
+        logger.debug(f"Cleaned up old correlations, remaining: {len(self.correlations)}")
+
+
+# Placeholder for data types, assuming they are defined elsewhere
+class FindingType:
     VULNERABILITY = "vulnerability"
     FALSE_POSITIVE = "false_positive"
-    INFORMATION = "information"
-    EXPLOITATION = "exploitation"
 
-
-@dataclass
 class Finding:
-    id: str
-    type: FindingType
-    title: str
-    description: str
-    url: str
-    method: str
-    parameters: Dict[str, Any]
-    evidence: Dict[str, Any]
-    severity: str
-    confidence: float
-    created_at: datetime
-    updated_at: datetime
-    tags: List[str]
-    model_used: str
-    hash: str
+    pass
 
-
-@dataclass
 class FeedbackEntry:
-    finding_id: str
-    feedback_type: str  # "confirmed", "false_positive", "duplicate", "improvement"
-    feedback_data: Dict[str, Any]
-    created_at: datetime
-    source: str  # "human", "automated", "cross_validation"
+    pass
+
+
+class TriageMemoryManager:
+    """Manages triage feedback memory and prevents duplicate vulnerability reports"""
+    
+    def __init__(self, db_path: str = "data/memory.db", config: Optional[Dict] = None):
+        logger.debug(f"Cleaned up old correlations, remaining: {len(self.correlations)}")
 
 
 class MemoryManager:
@@ -510,14 +697,13 @@ class MemoryManager:
             
         except Exception as e:
             logger.error(f"Failed to export findings: {e}")
-    
-    def is_duplicate_vulnerability(self, 
-                                 url: str, 
-                                 method: str, 
-                                 vulnerability_type: str, 
-                                 parameters: Dict[str, Any] = None) -> bool:
+
+    def is_duplicate_vulnerability(self,
+                                   url: str,
+                                   method: str,
+                                   vulnerability_type: str,
+                                   parameters: Dict[str, Any]) -> bool:
         """Check if a vulnerability is a duplicate"""
-        parameters = parameters or {}
         finding_hash = self._calculate_finding_hash(url, method, vulnerability_type, parameters)
         return self.find_duplicate(finding_hash) is not None
 
@@ -533,7 +719,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    manager = MemoryManager()
+    manager = TriageMemoryManager()
     
     if args.stats:
         stats = manager.get_finding_statistics()
