@@ -40,6 +40,7 @@ This project transforms Copilot into an operational AI red team agent with **aut
 ## ⚙️ Installation & Setup
 
 ### Prerequisites
+
 - Python 3.9+
 - Burp Suite Professional with MCP server enabled
 - VS Code with GitHub Copilot and MCP support
@@ -105,6 +106,7 @@ freeboldsec-ai-vulnops/
 ## 🚦 Usage
 
 ### Basic Vulnerability Triage
+
 ```python
 from core.model_dispatcher import ModelDispatcher
 
@@ -113,6 +115,7 @@ result = dispatcher.analyze_burp_log("burp_scan_results.json")
 ```
 
 ### Automated Recon via MCP
+
 ```python
 from core.burp_mcp_client import BurpMCPClient
 
