@@ -62,5 +62,17 @@
 
 # =============================================================================
 # EVERYTHING ELSE IS EXCLUDED - NO EXCEPTIONS
-# ALL HERTZ RESEARCH, ASSESSMENT DATA, AND TOOLS ARE PROTECTED
+# ALL PRIVATE BUG BOUNTY RESEARCH, ASSESSMENT DATA, AND TOOLS ARE PROTECTED
 # =============================================================================
+
+# EXPLICITLY BLOCKED SENSITIVE CONTENT:
+# - targets/ (All target intelligence files)
+# - assessments/ (All assessment data)
+# - reports/ (All vulnerability reports)  
+# - exploits/ (All exploit code)
+# - credentials/ (All authentication data)
+# - *.log (All log files)
+# - *_intelligence.py (All intelligence files)
+# - register_elite_targets.py (Target registration script)
+# - command_control_server.py (C&C server code)
+# - Any files containing real program details
